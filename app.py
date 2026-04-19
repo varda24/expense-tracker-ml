@@ -173,7 +173,7 @@ def arima_forecast(df):
 
     forecast_df = forecast.reset_index()
     forecast_df.columns = ['Month', 'Forecast']
-    forecast_df['Month'] = forecast_df['Month'].dt.strftime('%Y-%m')
+    forecast_df['Month'] = pd.to_datetime(forecast_df['Month']).dt.strftime('%Y-%m')
 
     return monthly, forecast_df
 
