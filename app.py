@@ -15,74 +15,9 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 st.set_page_config(page_title="Expense Tracker", layout="wide")
 
-init_db()
-
-st.sidebar.title("🔐 Login System")
-
-menu = ["Login", "Register"]
-choice = st.sidebar.selectbox("Menu", menu)
-
-if choice == "Register":
-    new_user = st.sidebar.text_input("Username")
-    new_pass = st.sidebar.text_input("Password", type='password')
-
-    if st.sidebar.button("Register"):
-        register_user(new_user, new_pass)
-        st.sidebar.success("User registered!")
-
-elif choice == "Login":
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type='password')
-
-    if st.sidebar.button("Login"):
-        result = login_user(username, password)
-        if result:
-            st.session_state['user'] = username
-            st.success(f"Welcome {username}")
-        else:
-            st.error("Invalid credentials")
-
-if 'user' not in st.session_state:
-    st.warning("Please login to continue")
-    st.stop()
-
-# -------------------------------
-# ML MODEL - EXPENSE PREDICTION
-# -------------------------------
-
-def predict_future_expenses(df):
-
-    # Convert Month to numeric index
-    monthly = df.groupby('Month')['Amount'].sum().reset_index()
-    monthly['Month'] = monthly['Month'].astype(str)
-
-    monthly['Month_Index'] = range(len(monthly))
-
-    X = monthly[['Month_Index']]
-    y = monthly['Amount']
-
-    # Train model
-    model = LinearRegression()
-    model.fit(X, y)
-
-    # Predict next 3 months
-    future_months = np.array(range(len(monthly), len(monthly)+3)).reshape(-1,1)
-    predictions = model.predict(future_months)
-
-    # Create future labels
-    last_month = pd.Period(monthly['Month'].iloc[-1])
-    future_labels = [(last_month + i + 1).strftime('%Y-%m') for i in range(3)]
-
-    pred_df = pd.DataFrame({
-        'Month': future_labels,
-        'Predicted_Expense': [round(x, 2) for x in predictions]
-    })
-
-    return monthly, pred_df
-
-# -------------------------------
+# =========================================
 # DATABASE SETUP
-# -------------------------------
+# =========================================
 def init_db():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
@@ -138,9 +73,80 @@ def load_user_expenses(username):
     return user_df
 
 
-# -------------------------------
+# =========================================
+# INITIALIZE DATABASE
+# =========================================
+init_db()
+
+# =========================================
+# LOGIN & REGISTRATION
+# =========================================
+st.sidebar.title("🔐 Login System")
+
+menu = ["Login", "Register"]
+choice = st.sidebar.selectbox("Menu", menu)
+
+if choice == "Register":
+    new_user = st.sidebar.text_input("Username")
+    new_pass = st.sidebar.text_input("Password", type='password')
+
+    if st.sidebar.button("Register"):
+        register_user(new_user, new_pass)
+        st.sidebar.success("User registered!")
+
+elif choice == "Login":
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type='password')
+
+    if st.sidebar.button("Login"):
+        result = login_user(username, password)
+        if result:
+            st.session_state['user'] = username
+            st.success(f"Welcome {username}")
+        else:
+            st.error("Invalid credentials")
+
+if 'user' not in st.session_state:
+    st.warning("Please login to continue")
+    st.stop()
+
+# =========================================
+# ML MODEL - EXPENSE PREDICTION
+# =========================================
+
+def predict_future_expenses(df):
+
+    # Convert Month to numeric index
+    monthly = df.groupby('Month')['Amount'].sum().reset_index()
+    monthly['Month'] = monthly['Month'].astype(str)
+
+    monthly['Month_Index'] = range(len(monthly))
+
+    X = monthly[['Month_Index']]
+    y = monthly['Amount']
+
+    # Train model
+    model = LinearRegression()
+    model.fit(X, y)
+
+    # Predict next 3 months
+    future_months = np.array(range(len(monthly), len(monthly)+3)).reshape(-1,1)
+    predictions = model.predict(future_months)
+
+    # Create future labels
+    last_month = pd.Period(monthly['Month'].iloc[-1])
+    future_labels = [(last_month + i + 1).strftime('%Y-%m') for i in range(3)]
+
+    pred_df = pd.DataFrame({
+        'Month': future_labels,
+        'Predicted_Expense': [round(x, 2) for x in predictions]
+    })
+
+    return monthly, pred_df
+
+# =========================================
 # ARIMA FORECASTING
-# -------------------------------
+# =========================================
 def arima_forecast(df):
     monthly = df.groupby('Month')['Amount'].sum()
     monthly.index = monthly.index.to_timestamp()
@@ -157,9 +163,9 @@ def arima_forecast(df):
     return monthly, forecast_df
 
 
-# -------------------------------
+# =========================================
 # PDF REPORT GENERATOR
-# -------------------------------
+# =========================================
 def generate_pdf(total, avg, max_val):
     doc = SimpleDocTemplate("report.pdf")
     styles = getSampleStyleSheet()
