@@ -42,9 +42,17 @@ def init_db():
 def register_user(username, password):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
+    
+    # Check if user already exists
+    c.execute("SELECT * FROM users WHERE username=?", (username,))
+    if c.fetchone():
+        conn.close()
+        return False
+    
     c.execute("INSERT INTO users VALUES (?,?)", (username, password))
     conn.commit()
     conn.close()
+    return True
 
 
 def login_user(username, password):
@@ -91,8 +99,10 @@ if choice == "Register":
     new_pass = st.sidebar.text_input("Password", type='password')
 
     if st.sidebar.button("Register"):
-        register_user(new_user, new_pass)
-        st.sidebar.success("User registered!")
+        if register_user(new_user, new_pass):
+            st.sidebar.success("User registered! You can now login.")
+        else:
+            st.sidebar.error("User already exists!")
 
 elif choice == "Login":
     username = st.sidebar.text_input("Username")
@@ -105,6 +115,11 @@ elif choice == "Login":
             st.success(f"Welcome {username}")
         else:
             st.error("Invalid credentials")
+
+    if st.sidebar.button("Logout"):
+        if 'user' in st.session_state:
+            del st.session_state['user']
+            st.rerun()
 
 if 'user' not in st.session_state:
     st.warning("Please login to continue")
@@ -228,9 +243,12 @@ if data_option == "Upload CSV":
 else:
     df = generate_data()
 
+# Load user-specific expenses
 user_expenses = load_user_expenses(st.session_state['user'])
 if not user_expenses.empty:
-    df = pd.concat([df, user_expenses], ignore_index=True)
+    df = user_expenses
+else:
+    df = generate_data()
 
 # -------------------------------
 # USER EXPENSE INPUT
@@ -249,7 +267,7 @@ if st.button("Add Expense"):
     conn.commit()
     conn.close()
     st.success("Expense added!")
-    st.experimental_rerun()
+    st.rerun()
 
 # -------------------------------
 # 3. FILTERS
